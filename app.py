@@ -43,8 +43,60 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
            string and return it along with session["outfit_suggestion"] and
            session["fit_card"].
     """
-    # TODO: implement this function
-    return "Agent not yet implemented.", "", ""
+    # Step 1 — guard against empty input
+    if not user_query.strip():
+        return "Please enter a search query.", "", ""
+
+    # Step 2 — select wardrobe
+    wardrobe = (
+        get_example_wardrobe()
+        if wardrobe_choice == "Example wardrobe"
+        else get_empty_wardrobe()
+    )
+
+    # Step 3 — run the agent
+    session = run_agent(user_query, wardrobe)
+
+    # Step 4 — surface errors in the first panel
+    if session["error"]:
+        return session["error"], "", ""
+
+    # Step 5 — format the top listing for the first panel
+    item = session["selected_item"]
+    listing_lines = [
+        item["title"],
+        f"Price: ${item['price']} | Condition: {item['condition']} | Platform: {item['platform']}",
+        f"Size: {item['size']} | Category: {item['category']}",
+        f"Colors: {', '.join(item['colors'])}",
+        f"Style: {', '.join(item['style_tags'])}",
+        "",
+        item["description"],
+    ]
+    also_found = session["search_results"][1:]
+    if also_found:
+        listing_lines += ["", "Also found:"]
+        for r in also_found:
+            listing_lines.append(
+                f"• {r['title']} — ${r['price']}, {r['condition']}, {r['platform']}"
+            )
+    listing_text = "\n".join(listing_lines)
+
+    # Format outfit suggestion dict → readable string for the second panel
+    suggestion = session["outfit_suggestion"]
+    if isinstance(suggestion, dict):
+        note = suggestion.get("styling_note", "")
+        paired = suggestion.get("outfit", [])
+        if paired:
+            items_text = "\n".join(f"· {i['name']}" for i in paired)
+            outfit_text = f"{note}\n\nPairs with:\n{items_text}"
+        else:
+            outfit_text = note
+    else:
+        outfit_text = str(suggestion) if suggestion else ""
+
+    fit_card = session["fit_card"] or ""
+
+    return listing_text, outfit_text, fit_card
 
 
 # ── interface ─────────────────────────────────────────────────────────────────
